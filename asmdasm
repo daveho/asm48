@@ -6,4 +6,4 @@ file=$1
 ./asm48 -f bin $file
 outfile=`basename $file .asm`.bin
 size=`ls -l $outfile|awk '{print $5}'`
-./8039dasm $file 0 $size
+./8039dasm $outfile 0 $size
