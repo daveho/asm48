@@ -1,0 +1,91 @@
+8048 assembler
+Version 0.0, January 23, 2003
+David Hovemeyer <daveho@cs.umd.edu>
+
+===========
+What is it?
+===========
+
+This is an assembler for the Intel 8048 family of microcontrollers.
+It is free software; you may use, modify, and redistribute it according to
+the terms specified in the various source files.
+
+In case you don't know, the Intel 8048 family was one of the very
+first commercially successful microcontroller product lines.  You can
+find them in an enormous range of devices, such as cars, computer
+keyboards, industrial equipment, etc.  Members of the 8048 family include
+the 8021, 8035, 8038, 8039, 8040, 8048, 8049, 8050, 8748, and 8749.
+(I believe the 8041 and 8042 are also in the same general family,
+although I think the instruction encodings are somewhat different, and
+thus I wouldn't necessarily expect this assembler to support those chips.)
+
+You can find the 8048 in the Magnavox Odyssey^2 game system and certain
+arcade video games.
+
+================
+Acknowledgements
+================
+
+This product includes software developed by the University of
+California, Berkeley and its contributors.
+
+The file "ihex.c" was written by Paul Stoffregen.
+
+The file "8039dasm.c" was written by Michael Cuddy,
+and was shamelessly stolen from the MAME/MESS project.
+
+============
+Installation
+============
+
+Just run the command "make".  There are a couple configurable options in
+the Makefile you might want to change.  I assume you have flex and bison
+available on your system.  You should be able to use other lex and yacc
+variants, although you might need to change the Makefile a bit.
+
+The resulting executables are called "asm48" and "8039dasm".  They are the
+assembler and disassembler, respectively.
+
+===========
+Usage notes
+===========
+
+To a large extent, I've tried to follow the assembly syntax described in
+the Intel 8048 user manual.  However, I've made some gratuitous changes:
+
+  - Lower case is accepted for instruction mnemonics, register names, etc.
+  - EQU directives are written differently
+  - The '#' prefix indicating an immediate value may be specified or
+    omitted at your whim
+  - Hex constants may be specified using the standard C notation
+    (0x1A) rather than the Intel notation (1Ah)
+
+Two kinds of directives are allowed:
+
+  .equ IDENTIFIER, VALUE
+  .org VALUE
+
+Values may be expressions using the standard arithmetic operators
+(+-*/), as well as left and right shifts (<< and >>).
+
+============================
+Disclaimers and contact info
+============================
+
+If you actually use this assembler, please send me an email at
+<daveho@cs.umd.edu>.  I wrote it on a lark[*], and given how crufty
+and ancient the 8048 is, I'd be surprised and amused to find out that
+someone else was interested in writing code for it.  I will also
+happily accept bug fixes and new features.
+
+There are almost certainly bugs in this software, so use at your own risk.
+I accept absolutely no responsibility for any consequences resulting
+from the use of this software.
+
+If you do decide to use the assembler, you are STRONGLY ADVISED to run
+your assembled code through the included disassembler to check that the
+assembler output looks reasonable.
+
+Have fun!
+
+[*] It was really hard to get it to stand still.
