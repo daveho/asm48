@@ -55,5 +55,7 @@ test : $(EXES)
 
 lex.o : parse.o
 
+expr.o : parse.o
+
 clean :
 	rm -f *.o *.core $(EXES) parse.tab.c parse.tab.h lex.yy.c
