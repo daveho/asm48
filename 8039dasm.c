@@ -313,6 +313,7 @@ int main(int argc, char **argv)
 	unsigned offset, length;
 	char buf[256];
 	int pc = 0;
+	FILE *fp;
 
 	if (argc != 4) {
 		fprintf(stderr, "Usage: 8039dasm <filename> <offset> <len>\n");
@@ -323,7 +324,7 @@ int main(int argc, char **argv)
 	offset = (unsigned) atoi(argv[2]);
 	length = (unsigned) atoi(argv[3]);
 
-	FILE *fp = fopen(filename, "rb");
+	fp = fopen(filename, "rb");
 	if (fp == NULL) {
 		fprintf(stderr, "Couldn't open %s: %s\n", filename, strerror(errno));
 		exit(1);
