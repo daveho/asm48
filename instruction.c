@@ -307,7 +307,8 @@ void append(struct Instruction *ins)
 	if (ins_head == NULL) {
 		ins_head = ins_tail = ins;
 	} else {
-		assert(ins->offset > ins_tail->offset);
+		assert(ins->offset >= ins_tail->offset);
+		assert(ins->offset != ins_tail->offset || ins_tail->size == 0);
 		ins_tail->next = ins;
 		ins_tail = ins;
 	}
