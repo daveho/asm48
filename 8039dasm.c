@@ -17,6 +17,9 @@
  * Adapted by Andrea Mazzoleni for use with MAME
  *
  * Modified by David Hovemeyer <daveho@cs.umd.edu> for standalone use
+ *   Also fixed some bugs, adjusted the output format slightly,
+ *   and made it less permissive (since we want it to be as accurate
+ *   as possible)
  *
  ***************************************************************************/
 
@@ -37,9 +40,9 @@ const char *Formats[] = {
 	FMT("00000011dddddddd", "add  a,#$%X"),
 	FMT("01101rrr", "add  a,%R"),
 	FMT("0110000r", "add  a,@%R"),
-	FMT("00010011dddddddd", "adc  a,#$%X"),
-	FMT("01111rrr", "adc  a,%R"),
-	FMT("0111000r", "adc  a,@%R"),
+	FMT("00010011dddddddd", "addc  a,#$%X"),
+	FMT("01111rrr", "addc  a,%R"),
+	FMT("0111000r", "addc  a,@%R"),
 	FMT("01010011dddddddd", "anl  a,#$%X"),
 	FMT("01011rrr", "anl  a,%R"),
 	FMT("0101000r", "anl  a,@%R"),
@@ -111,7 +114,9 @@ const char *Formats[] = {
 	FMT("1000 1010dddddddd", "orl  p2,#$%X"),
 	FMT("1000 11pp", "orld %P,a"),
 	FMT("00000010", "outl bus,a"),
-	FMT("001110pp", "outl %P,a"),
+	/*FMT("001110pp", "outl %p,a"),*/
+	FMT("00111001", "outl p1,a"),
+	FMT("00111010", "outl p2,a"),
 	FMT("10000011", "ret"),
 	FMT("10010011", "retr"),
 	FMT("11100111", "rl   a"),
@@ -233,7 +238,7 @@ int Dasm8039(char *buffer, unsigned pc)
 
 	if (op == -1)
 	{
-		sprintf(buffer,"db   %2.2x",code);
+		sprintf(buffer,".db   0x%2.2x",code);
 		return cnt;
 	}
 
@@ -286,7 +291,7 @@ int Dasm8039(char *buffer, unsigned pc)
 				case 'D': sprintf(num,"%d",d); break;
 				case 'X': sprintf(num,"%X",d); break;
 				case 'R': sprintf(num,"r%d",r); break;
-				case 'P': sprintf(num,"p%d",p); break;
+				case 'P': sprintf(num,"p%d",p + 4); break;
 				default:
 					printf("illegal escape character in format '%s'\n",Op[op].fmt);
 					exit(1);
