@@ -156,6 +156,9 @@ SINGLE		[@,:()+\-\*/#\&\|]
 		/* Hex constant. */
 0[Xx]{HEX}+	{ yylval.ival = hex_const_value(yytext); return INT_VALUE; }
 
+		/* Hex constant. This is the numeric format produced by the disassembler. */
+${HEX}+		{ sscanf(yytext+1, "%x", &yylval.ival); return INT_VALUE; }
+
 		/* Single-character tokens. */
 {SINGLE}	{ return yytext[0]; }
 
