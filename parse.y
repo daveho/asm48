@@ -42,12 +42,12 @@ static int parse_src_line;
 %token EOL
 
 %token ADD ADDC ANL ANLD CALL CLR CPL DA DEC DIS DJNZ EN
-%token ENT0 IN INC JC JF0 JF1 JMP JMPP JNC JNI JNT0 JNT1 JNZ
-%token JTF JT0 JT1 JZ MOV MOVP MOVP3 MOVX NOP ORL ORLD OUTL
+%token ENT0 IN INC INS JC JF0 JF1 JMP JMPP JNC JNI JNT0 JNT1 JNZ
+%token JTF JT0 JT1 JZ MOV MOVD MOVP MOVP3 MOVX NOP ORL ORLD OUTL
 %token RET RETR RL RLC RR RRC SEL STOP STRT SWAP XCH XCHD
 %token XRL
 
-%token EQU ORG
+%token EQU ORG DB
 %token LSHIFT RSHIFT
 %token UMINUS
 
@@ -75,6 +75,7 @@ instruction :
 	   instruction_expr { ins_tail->src_line = parse_src_line; } EOL
 	| equate_directive EOL
 	| org_directive EOL
+	| db_directive EOL
 	| label
 	| EOL
 	;
@@ -89,6 +90,10 @@ equate_directive :
 
 org_directive :
 	  ORG INT_VALUE			{ append(org($2, parse_src_line)); }
+	;
+
+db_directive :
+	  DB expr			{ append(db(eval_expr($2), parse_src_line)); }
 	;
 
 instruction_expr :
@@ -124,7 +129,8 @@ instruction_expr :
 	| INC A				{ append(ins1(0x17)); }
 	| INC any_reg			{ append(reg_ins(0x18, $2)); }
 	| INC '@' DEREF_REG		{ append(deref_ins(0x10, $3)); }
-	| IN A ',' BUS			{ append(ins1(0x08)); }
+	| IN A ',' P0			{ append(ins1(0x08)); } /* FIXME: is this right? Manual doesn't list opcode!??? */
+	| INS A ',' BUS			{ append(ins1(0x08)); }
 	| JB address			{ append(jb_ins($1, $2)); }
 	| JC address			{ append(j8_ins(0xF6, $2)); }
 	| JF0 address			{ append(j8_ins(0xB6, $2)); }
@@ -151,8 +157,8 @@ instruction_expr :
 	| MOV '@' DEREF_REG ',' A	{ append(deref_ins(0xA0, $3)); }
 	| MOV '@' DEREF_REG ',' imm_val	{ append(deref_imm_ins(0xB0, $3, $5)); }
 	| MOV T ',' A			{ append(ins1(0x62)); }
-	| MOV A ',' P47			{ append(port_ins(0x0C, $4)); }
-	| MOV P47 ',' A			{ append(port_ins(0x3C, $2)); }
+	| MOVD A ',' P47		{ append(port_ins(0x0C, $4)); }
+	| MOVD P47 ',' A		{ append(port_ins(0x3C, $2)); }
 	| MOVP A ',' '@' A		{ append(ins1(0xA3)); }
 	| MOVP3 A ',' '@' A		{ append(ins1(0xE3)); }
 	| MOVX A ',' '@' DEREF_REG	{ append(deref_ins(0x80, $5)); }
@@ -179,7 +185,8 @@ instruction_expr :
 	| STRT CNT			{ append(ins1(0x45)); }
 	| STRT T			{ append(ins1(0x55)); }
 	| SWAP A			{ append(ins1(0x47)); }
-	| XCH A ',' any_reg		{ append(reg_ins(0x20, $4)); }
+	| XCH A ',' any_reg		{ append(reg_ins(0x28, $4)); }
+	| XCH A ',' '@' DEREF_REG	{ append(deref_ins(0x20, $5)); }
 	| XCHD A ',' '@' DEREF_REG	{ append(deref_ins(0x30, $5)); }
 	| XRL A ',' any_reg		{ append(reg_ins(0xD8, $4)); }
 	| XRL A ',' '@' DEREF_REG	{ append(deref_ins(0xD0, $5)); }

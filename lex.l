@@ -142,10 +142,10 @@ SINGLE		[@,:()+\-\*/#\&\|]
 (CNT|cnt)	{ return CNT; }
 
 		/* Memory banks (MB0 and MB1). */
-(MB|mb)[01]	{ yylval.bit_num = digit_value(yytext[1]); return MB; }
+(MB|mb)[01]	{ yylval.bit_num = digit_value(yytext[2]); return MB; }
 
 		/* Register banks (RB0 and RB1). */
-(RB|rb)[01]	{ yylval.bit_num = digit_value(yytext[1]); return RB; }
+(RB|rb)[01]	{ yylval.bit_num = digit_value(yytext[2]); return RB; }
 
 		/* Decimal constant. */
 {DIGIT}+	{ yylval.ival = atoi(yytext); return INT_VALUE; }
@@ -174,6 +174,9 @@ ${HEX}+		{ sscanf(yytext+1, "%x", &yylval.ival); return INT_VALUE; }
 		/* .org directive  */
 "."(ORG|org)	{ return ORG; }
 
+		/* .db directive */
+"."(DB|db)	{ return DB; }
+
 		/* Instruction mnemonics. */
 (ADD|add)	{ return ADD; }
 (ADDC|addc)	{ return ADDC; }
@@ -190,7 +193,8 @@ ${HEX}+		{ sscanf(yytext+1, "%x", &yylval.ival); return INT_VALUE; }
 (ENT0|ent0)	{ return ENT0; }
 (IN|in)		{ return IN; }
 (INC|inc)	{ return INC; }
-(JB|jb)[0-7]	{ yylval.bit_num = digit_value(yytext[1]); return JB; }
+(INS|ins)	{ return INS; }
+(JB|jb)[0-7]	{ yylval.bit_num = digit_value(yytext[2]); return JB; }
 (JC|jc)		{ return JC; }
 (JF0|jf0)	{ return JF0; }
 (JF1|jf1)	{ return JF1; }
@@ -206,6 +210,7 @@ ${HEX}+		{ sscanf(yytext+1, "%x", &yylval.ival); return INT_VALUE; }
 (JT1|jt1)	{ return JT1; }
 (JZ|jz)		{ return JZ; }
 (MOV|mov)	{ return MOV; }
+(MOVD|movd)	{ return MOVD; }
 (MOVP|movp)	{ return MOVP; }
 (MOVP3|movp3)	{ return MOVP3; }
 (MOVX|movx)	{ return MOVX; }
