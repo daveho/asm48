@@ -85,7 +85,7 @@ SINGLE		[@,:()+\-\*/#\&\|]
 %%
 
 		/* Skip comments. */
-";".*"\n"	{ ++lex_src_line; }
+";".*"\n"	{ ++lex_src_line; return EOL; }
 
 		/* Skip horizontal whitespace. */
 {HWS}+		{ }
