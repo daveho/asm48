@@ -52,6 +52,7 @@ struct Expr {
 	const char *sym;
 	int value;
 	int line_num;
+	int cur_offset;
 };
 
 struct Vtable;

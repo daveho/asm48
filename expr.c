@@ -24,6 +24,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <assert.h>
 #include "parse.tab.h"
 #include "asm48.h"
@@ -40,6 +41,7 @@ static struct Expr *mk_expr(int op, struct Expr *left, struct Expr *right, const
 	expr->sym = sym;
 	expr->value = value;
 	expr->line_num = line_num;
+	expr->cur_offset = cur_offset;
 	return expr;
 }
 
@@ -88,6 +90,8 @@ int eval_expr(struct Expr *expr)
 			return expr->value;
 
 		case IDENTIFIER:
+			if (strcmp(expr->sym, ".here") == 0)	/* addr of current instruction */
+				return expr->cur_offset;
 			symbol = lookup_symbol(expr->sym);
 			if (symbol == NULL)
 				err_printf("Unknown symbol '%s' at line %d\n", expr->sym, expr->line_num);

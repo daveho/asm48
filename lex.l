@@ -233,7 +233,7 @@ ${HEX}+		{ sscanf(yytext+1, "%x", &yylval.ival); return INT_VALUE; }
 (XRL|xrl)	{ return XRL; }
 
 		/* Identifier. */
-{IDSTART}{IDCHAR}* { yylval.identifier = dup_str(yytext); return IDENTIFIER; }
+\.?{IDSTART}{IDCHAR}* { yylval.identifier = dup_str(yytext); return IDENTIFIER; }
 
 .		{ err_printf("Unexpected character '%c' at line %d\n", yytext[0], lex_src_line); }
 
