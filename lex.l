@@ -30,6 +30,9 @@
 #include "asm48.h"
 #include "parse.tab.h"
 
+/* Define yywrap() so we don't need to link with the flex library. */
+#define yywrap() 1
+
 /*
  * Current source line.
  */
