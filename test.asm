@@ -17,6 +17,8 @@
 	MOV @R1, 0x10 + 2
 	MOV @R1, 0x10 - 2
 
+	MOV @R1, $10
+
 .equ AnotherValue, (0xAA & 0xFF)
 
 	ORL BUS, #AnotherValue
