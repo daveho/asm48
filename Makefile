@@ -68,7 +68,7 @@ expr.o : parse.o
 VERSION := 0.0
 
 ifeq ($(OS),Windows_NT)
-PLATFORM := i686-Windows
+PLATFORM := Windows-i686
 else
 PLATFORM := $(shell uname -s)-$(shell uname -m)
 endif
