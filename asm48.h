@@ -33,6 +33,7 @@
 #define PORT_MASK 0x3		/* Mask for port number. */
 
 #define PAGE_MASK (~(0xFF))	/* Mask for 256 byte "page" in instruction memory. */
+#define MAX_ADDR (1<<12)	/* Maximum address for call and jmp instructions. */
 
 /*
  * Memory pool object, for quick allocation.

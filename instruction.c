@@ -54,7 +54,7 @@ static void assemble_imm_ins(struct Instruction *ins)
 	int imm_val = eval_expr(ins->expr);
 	/*printf("imm_val = %d\n", imm_val);*/
 	if (imm_val < 0 || imm_val > 255)
-		warn_printf("line %d: immediate value exceeds range\n", ins->src_line);
+		warn_printf("line %d: immediate value %d exceeds range\n", ins->src_line, imm_val);
 	ins->buf[1] = imm_val;
 }
 
@@ -72,7 +72,11 @@ static void assemble_jmp(struct Instruction *ins)
 {
 	int address = eval_expr(ins->expr);
 	/*printf("address = %d\n", address);*/
-	/* FIXME: ensure that address is in range. */
+	/*
+	 * Ensure that address is in range.
+	 */
+	if (address < 0 || address >= MAX_ADDR)
+		warn_printf("line %d: address %d is out of range\n", ins->src_line, address);
 	ins->buf[0] |= ((address >> 3) & 0xE0);
 	ins->buf[1] = address & 0xFF;
 	/*printf("Call to address %x - %2.2x %2.2x\n", address, ins->buf[0], ins->buf[1]);*/
