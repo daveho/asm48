@@ -50,6 +50,9 @@ asm48$(EXE) : $(OBJS)
 8039dasm$(EXE) : 8039dasm.o
 	$(CC) -o $@ 8039dasm.o
 
+test : $(EXES)
+	./runtest
+
 lex.o : parse.o
 
 clean :
