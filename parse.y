@@ -245,6 +245,7 @@ mult_expr :
 unary_expr :
 	  '+' unary_expr { $$ = $2; }
 	| '-' unary_expr { $$ = mk_unary_expr(UMINUS, $2, parse_src_line); }
+	| '~' unary_expr { $$ = mk_unary_expr('~', $2, parse_src_line); }
 	| primary_expr
 	;
 

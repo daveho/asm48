@@ -83,7 +83,7 @@ HEX		({DIGIT}|[A-Fa-f])
 IDSTART		[A-Za-z_]
 IDCHAR		({IDSTART}|{DIGIT})
 HWS		[ \t\r]
-SINGLE		[@,:()+\-\*/#\&\|]
+SINGLE		[@,:()+\-\*/#\&\|~]
 
 %%
 

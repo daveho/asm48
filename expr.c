@@ -99,6 +99,9 @@ int eval_expr(struct Expr *expr)
 
 		case UMINUS:
 			return 0 - eval_expr(expr->left);
+
+		case '~':
+			return ~(eval_expr(expr->left));
 	}
 
 	lval = eval_expr(expr->left);
