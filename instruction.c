@@ -73,8 +73,9 @@ static void assemble_jmp(struct Instruction *ins)
 	int address = eval_expr(ins->expr);
 	/*printf("address = %d\n", address);*/
 	/* FIXME: ensure that address is in range. */
-	ins->buf[0] |= ((address >> 3) & 0xE);
+	ins->buf[0] |= ((address >> 3) & 0xE0);
 	ins->buf[1] = address & 0xFF;
+	/*printf("Call to address %x - %2.2x %2.2x\n", address, ins->buf[0], ins->buf[1]);*/
 }
 
 /*
