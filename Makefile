@@ -57,5 +57,24 @@ lex.o : parse.o
 
 expr.o : parse.o
 
+VERSION := 0.0
+PLATFORM := $(shell uname -s)-$(shell uname -m)
+RELNAME := asm48-$(VERSION)-$(PLATFORM)
+DISTFILE := $(RELNAME).tar
+DISTFILE_GZ := $(DISTFILE).gz
+
+dist : $(DISTFILE_GZ)
+
+$(DISTFILE_GZ) : $(EXES)
+	rm -rf $(RELNAME)
+	mkdir $(RELNAME)
+	cp $(EXES) README $(RELNAME)
+	tar cf $(DISTFILE) $(RELNAME)
+	gzip --best $(DISTFILE)
+	rm -rf $(RELNAME)
+
 clean :
 	rm -f *.o *.core $(EXES) parse.tab.c parse.tab.h lex.yy.c
+
+distclean : clean
+	rm -rf $(RELNAME) $(DISTFILE) $(DISTFILE_GZ)
