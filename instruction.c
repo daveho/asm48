@@ -52,7 +52,7 @@ static struct Vtable noop_vtable = {
 static void assemble_imm_ins(struct Instruction *ins)
 {
 	int imm_val = eval_expr(ins->expr);
-	printf("imm_val = %d\n", imm_val);
+	/*printf("imm_val = %d\n", imm_val);*/
 	if (imm_val < 0 || imm_val > 255)
 		warn_printf("line %d: immediate value exceeds range\n", ins->src_line);
 	ins->buf[1] = imm_val;
@@ -71,7 +71,7 @@ static struct Vtable imm_ins_vtable = {
 static void assemble_jmp(struct Instruction *ins)
 {
 	int address = eval_expr(ins->expr);
-	printf("address = %d\n", address);
+	/*printf("address = %d\n", address);*/
 	/* FIXME: ensure that address is in range. */
 	ins->buf[0] |= ((address >> 3) & 0xE);
 	ins->buf[1] = address & 0xFF;
@@ -91,7 +91,7 @@ static struct Vtable jmp_vtable = {
 static void assemble_j8(struct Instruction *ins)
 {
 	int address = eval_expr(ins->expr);
-	printf("address = %d\n", address);
+	/*printf("address = %d\n", address);*/
 	if ((address & PAGE_MASK) != (ins->offset & PAGE_MASK))
 		warn_printf("line %d: jump offset not in same page\n", ins->src_line);
 	ins->buf[1] = address;
@@ -279,6 +279,17 @@ struct Instruction *org(int address, int line_num)
 	fill = allocate_instruction(fill_size, cur_offset);
 	memset(fill->buf, '\0', fill_size);
 	return fill;
+}
+
+/*
+ * Assemble a literal byte value.
+ */
+struct Instruction *db(int value, int line_num)
+{
+	struct Instruction *db_ins = ins1(value);
+	if (value < 0 || value > 255)
+		warn_printf("Line %d: value %d is out of range for byte\n", line_num, value);
+	return db_ins;
 }
 
 /*

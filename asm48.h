@@ -110,6 +110,7 @@ struct Instruction *jb_ins(int bit_num, struct Expr *addr);
 struct Instruction *reg_imm_ins(int opcode, int regnum, struct Expr *imm_val);
 struct Instruction *deref_imm_ins(int opcode, int regnum, struct Expr *imm_val);
 struct Instruction *org(int address, int line_num);
+struct Instruction *db(int value, int line_num);
 void append(struct Instruction *ins);
 
 /* expr.c */
