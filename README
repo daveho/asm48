@@ -1,5 +1,5 @@
 Asm48 - an 8048 cross assembler
-Version 0.0
+Version 0.1pre
 January 29, 2003
 David Hovemeyer <daveho@cs.umd.edu>
 
@@ -72,8 +72,9 @@ current instruction.
 
 Values may be expressions using the standard arithmetic operators
 ("+", "-", "*", "/"), as well as left and right shifts ("<<" and ">>"),
-and bitwise "&" (and) and "|" (or).  All expressions are evaluated
-using host platform ints.
+bitwise "&" (and) and "|" (or), and bitwise complement (the unary "~" operator).
+All expressions are evaluated using host platform ints.  Operator precedence
+follows the equivalent C operators.
 
 ============================
 Disclaimers and contact info

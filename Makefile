@@ -65,7 +65,7 @@ lex.o : parse.o
 
 expr.o : parse.o
 
-VERSION := 0.0
+VERSION := 0.1pre
 
 ifeq ($(OS),Windows_NT)
 PLATFORM := Windows-i686
