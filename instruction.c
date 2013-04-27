@@ -2,6 +2,9 @@
  * Assembler for the Intel 8048 microcontroller family.
  * Copyright (c) 2002,2003 David H. Hovemeyer <daveho@cs.umd.edu>
  *
+ * Enhanced in 2012, 2013 by JustBurn and sy2002 of MEGA
+ * http://www.adventurevision.net
+ *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
  * "Software"), to deal in the Software without restriction, including
@@ -47,14 +50,51 @@ static struct Vtable noop_vtable = {
 };
 
 /*
+ * Assemble() method for 8-bits constant. 
+ */
+static void assemble_db(struct Instruction *ins)
+{
+	int imm_val = eval_expr(ins->cur_file, ins->expr);
+	if (imm_val < -128 || imm_val > 255)
+		warn_printf("[%s] Line %d: immediate value %d exceeds range\n", ins->cur_file, ins->src_line, imm_val);
+	ins->buf[0] = imm_val;
+}
+
+/*
+ * Vtable for 8-bits constant. 
+ */
+static struct Vtable db_vtable = {
+	&assemble_db,
+};
+
+/*
+ * Assemble() method for 16-bits constant. 
+ */
+static void assemble_dw(struct Instruction *ins)
+{
+	int imm_val = eval_expr(ins->cur_file, ins->expr);
+	if (imm_val < -32768 || imm_val > 65535)
+		warn_printf("[%s] Line %d: immediate value %d exceeds range\n", ins->cur_file, ins->src_line, imm_val);
+	ins->buf[0] = imm_val & 0xFF;
+	ins->buf[1] = imm_val >> 8;
+}
+
+/*
+ * Vtable for 16-bits constant. 
+ */
+static struct Vtable dw_vtable = {
+	&assemble_dw,
+};
+
+/*
  * Assemble() method for instructions with immedate constants. 
  */
 static void assemble_imm_ins(struct Instruction *ins)
 {
-	int imm_val = eval_expr(ins->expr);
+	int imm_val = eval_expr(ins->cur_file, ins->expr);
 	/*printf("imm_val = %d\n", imm_val);*/
-	if (imm_val < 0 || imm_val > 255)
-		warn_printf("line %d: immediate value %d exceeds range\n", ins->src_line, imm_val);
+	if (imm_val < -128 || imm_val > 255)
+		warn_printf("[%s] Line %d: immediate value %d exceeds range\n", ins->cur_file, ins->src_line, imm_val);
 	ins->buf[1] = imm_val;
 }
 
@@ -70,13 +110,13 @@ static struct Vtable imm_ins_vtable = {
  */
 static void assemble_jmp(struct Instruction *ins)
 {
-	int address = eval_expr(ins->expr);
+	int address = eval_expr(ins->cur_file, ins->expr);
 	/*printf("address = %d\n", address);*/
 	/*
 	 * Ensure that address is in range.
 	 */
 	if (address < 0 || address >= MAX_ADDR)
-		warn_printf("line %d: address %d is out of range\n", ins->src_line, address);
+		warn_printf("[%s] Line %d: address %d is out of range\n", ins->cur_file, ins->src_line, address);
 	ins->buf[0] |= ((address >> 3) & 0xE0);
 	ins->buf[1] = address & 0xFF;
 	/*printf("Call to address %x - %2.2x %2.2x\n", address, ins->buf[0], ins->buf[1]);*/
@@ -95,10 +135,10 @@ static struct Vtable jmp_vtable = {
  */
 static void assemble_j8(struct Instruction *ins)
 {
-	int address = eval_expr(ins->expr);
+	int address = eval_expr(ins->cur_file, ins->expr);
 	/*printf("address = %d\n", address);*/
-	if ((address & PAGE_MASK) != (ins->offset & PAGE_MASK))
-		warn_printf("line %d: jump offset not in same page\n", ins->src_line);
+	if ((address & PAGE_MASK) != ((ins->offset+1) & PAGE_MASK))
+		warn_printf("[%s] Line %d: jump offset not in same page\n", ins->cur_file, ins->src_line);
 	ins->buf[1] = address;
 }
 
@@ -125,6 +165,7 @@ struct Instruction *allocate_instruction(int size, int offset)
 	ins->size = size;
 	ins->offset = offset;
 	ins->src_line = -1;
+	ins->cur_file = cur_file;
 	ins->buf = buf;
 	ins->expr = NULL;
 	ins->next = NULL;
@@ -277,12 +318,30 @@ struct Instruction *org(int address, int line_num)
 	struct Instruction *fill;
 
 	if (fill_size < 0) {
-		err_printf("Line %d: org directive of address %d less than current address %d\n",
-			line_num, address, cur_offset);
+		err_printf("[%s] Line %d: org directive of address %d less than current address %d\n",
+			cur_file, line_num, address, cur_offset);
 	}
 
 	fill = allocate_instruction(fill_size, cur_offset);
 	memset(fill->buf, '\0', fill_size);
+	return fill;
+}
+
+/*
+ * Return an Instruction to act as filler to implement an .orgfill directive.
+ */
+struct Instruction *orgfill(int address, int value, int line_num)
+{
+	int fill_size = address - cur_offset;
+	struct Instruction *fill;
+
+	if (fill_size < 0) {
+		err_printf("[%s] Line %d: orgfill directive of address %d less than current address %d\n",
+			cur_file, line_num, address, cur_offset);
+	}
+
+	fill = allocate_instruction(fill_size, cur_offset);
+	memset(fill->buf, value, fill_size);
 	return fill;
 }
 
@@ -292,9 +351,81 @@ struct Instruction *org(int address, int line_num)
 struct Instruction *db(int value, int line_num)
 {
 	struct Instruction *db_ins = ins1(value);
-	if (value < 0 || value > 255)
-		warn_printf("Line %d: value %d is out of range for byte\n", line_num, value);
+	if (value < -128 || value > 255)
+		warn_printf("[%s] Line %d: value %d is out of range for byte\n", cur_file, line_num, value);
 	return db_ins;
+}
+
+/*
+ * Assemble a literal byte value with bits reversed.
+ */
+struct Instruction *dbr(int value, int line_num)
+{
+	struct Instruction *db_ins;
+	int value2 = 0;
+	if (value < -128 || value > 255)
+		warn_printf("[%s] Line %d: value %d is out of range for byte\n", cur_file, line_num, value);
+	if (value & 0x01) value2 |= 0x80;
+	if (value & 0x02) value2 |= 0x40;
+	if (value & 0x04) value2 |= 0x20;
+	if (value & 0x08) value2 |= 0x10;
+	if (value & 0x10) value2 |= 0x08;
+	if (value & 0x20) value2 |= 0x04;
+	if (value & 0x40) value2 |= 0x02;
+	if (value & 0x80) value2 |= 0x01;
+	db_ins = ins1(value2);
+	return db_ins;
+}
+
+/*
+ * Assemble a literal byte value.
+ */
+struct Instruction *db_expr(struct Expr *expr_val, int line_num)
+{
+	struct Instruction *db_ins = allocate_instruction(1, cur_offset);
+	db_ins->vtable = &db_vtable;
+	db_ins->expr = expr_val;
+	db_ins->src_line = line_num;
+	return db_ins;
+}
+
+/*
+ * Assemble a literal word value.
+ */
+struct Instruction *dw_expr(struct Expr *expr_val, int line_num)
+{
+	struct Instruction *dw_ins = allocate_instruction(2, cur_offset);
+	dw_ins->vtable = &dw_vtable;
+	dw_ins->expr = expr_val;
+	dw_ins->src_line = line_num;
+	return dw_ins;
+}
+
+/*
+ * Include a binary
+ */
+struct Instruction *incbin(char *filename, int line_num)
+{
+	FILE *f;
+	int file_size;
+	struct Instruction *data;
+
+	filename[strlen(filename)-1] = '\0'; ++filename;
+	f = fopen(filename, "rb");
+
+	if(f == NULL) {
+		warn_printf("[%s] Line %d: unable to open file %s\n", cur_file, line_num, filename);
+		data = allocate_instruction(0, cur_offset);
+		return data;
+	}
+
+	fseek(f, 0, SEEK_END);
+	file_size = ftell(f);
+	data = allocate_instruction(file_size, cur_offset);
+	fseek(f, 0, SEEK_SET);
+	fread(data->buf, 1, file_size, f);
+	fclose(f);
+	return data;
 }
 
 /*
@@ -302,6 +433,28 @@ struct Instruction *db(int value, int line_num)
  * instruction list.
  */
 void append(struct Instruction *ins)
+{
+	int i;
+	assert(ins->next == NULL);
+	if (ins_head == NULL) {
+		ins_head = ins_tail = ins;
+	} else {
+		assert(ins->offset >= ins_tail->offset);
+		assert(ins->offset != ins_tail->offset || ins_tail->size == 0);
+		ins_tail->next = ins;
+		ins_tail = ins;
+	}
+	if (cur_offset < (BANK_USAGE_MAX * 256)) {
+		for (i=0; i<ins->size; i++) bank_usage[(cur_offset+i)>>8]++;
+	}
+	cur_offset += ins->size;
+}
+
+/*
+ * Append given Instruction onto the end of the
+ * instruction list. It doesn't add into the bank usage statistic
+ */
+void append_nostat(struct Instruction *ins)
 {
 	assert(ins->next == NULL);
 	if (ins_head == NULL) {

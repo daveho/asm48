@@ -2,6 +2,9 @@
  * Assembler for the Intel 8048 microcontroller family.
  * Copyright (c) 2002,2003 David H. Hovemeyer <daveho@cs.umd.edu>
  *
+ * Enhanced in 2012, 2013 by JustBurn and sy2002 of MEGA
+ * http://www.adventurevision.net
+ *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
  * "Software"), to deal in the Software without restriction, including
@@ -51,6 +54,26 @@ struct Pool *asm_pool;
 /* Offset of instruction currently being assembled. */
 int cur_offset;
 
+/* Filename of currently source being assembled. */
+char *cur_file;
+
+/* Bank usage */
+int bank_display = 0;
+int bank_usage[BANK_USAGE_MAX];
+
+/*
+ * Modify current filename
+ */
+void cur_file_set(const char *filename)
+{
+	const char *s = filename + strlen(filename);
+	while (s != filename) {
+		if ((*s == '\\') || (*s == '/')) { s++; break; }
+		s--;
+	}
+	cur_file = strdup(s);	// It will leak but is required
+}
+
 /*
  * Assemble all instructions (to resolve forward references).
  */
@@ -71,8 +94,11 @@ static void usage(void)
 	const char *msg =
 		"Usage: asm48 [options] <input file>\n"
 		"Options:\n"
+		"  -v               Print version number only and exit\n"
+		"  -t               Print ROM bank usage table\n"
+		"  -s <filename>    Export symbols list\n"
 		"  -o <filename>    Specify the name of the output file\n"
-		"  -f (bin|hex)     Specify output format (binary or Intel hex; default hex)\n";
+		"  -f (bin|hex)     Specify output format (binary or Intel hex; default bin)\n";
 
 	fprintf(stderr, "%s", msg);
 }
@@ -88,6 +114,8 @@ static void output_bin(const char *filename)
 
 	if (fwrite(asm_pool->buf, 1, cur_offset, fp) != cur_offset)
 		err_printf("Failed to write %d bytes of output to %s: %s\n", cur_offset, filename, strerror(errno));
+
+	printf("   Assembled %d bytes.\n", cur_offset);
 
 	fclose(fp);
 }
@@ -116,10 +144,13 @@ static const char *input_file;
 static char *output_file = NULL;
 
 /* Output function to emit assembled instructions. */
-static void (*output_func)(const char *) = &output_hex;
+static void (*output_func)(const char *) = &output_bin;
 
 /* Suffix of output file (if automatically generated from input filename. */
-static const char *output_suffix = ".hex";
+static const char *output_suffix = ".bin";
+
+/* Name of symbols file. */
+static char *symbols_file = NULL;
 
 /*
  * Parse command line options.
@@ -130,10 +161,18 @@ static void parse_options(int argc, char **argv)
 
 	opterr = 0;
 
-	while ((opt = getopt(argc, argv, "o:f:")) != -1) {
+	while ((opt = getopt(argc, argv, "vts:o:f:")) != -1) {
 		switch (opt) {
+			case 'v':
+				exit(0);
+			case 't':
+				bank_display = 1;
+				break;
+			case 's':
+				symbols_file = optarg;
+				break;
 			case 'o':
-				input_file = optarg;
+				output_file = optarg;
 				break;
 			case 'f':
 				if (strcmp(optarg, "bin") == 0) {
@@ -194,7 +233,9 @@ int main(int argc, char **argv)
 {
 	extern FILE *yyin;
 	extern void yyparse(void);
+	int i;
 
+	fprintf(stderr, "*** asm48 v" VERSION " ***\n");
 	parse_options(argc, argv);
 
 	yyin = fopen(input_file, "r");
@@ -203,12 +244,25 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
+	memset(bank_usage, 0, sizeof(bank_usage));
 	gen_pool = create_pool(GEN_POOL_SIZE);
 	asm_pool = create_pool(ASM_POOL_SIZE);
 
+	cur_file_set(input_file);
 	yyparse();
 	assemble();
+	if (symbols_file) export_symbols(symbols_file);
 	output_func(output_file);
+
+	if (bank_display) {
+		printf("\n   ROM banks usage:\n");
+		for (i=0; i<BANK_USAGE_MAX; i++) {
+			if (bank_usage[i]) {
+				printf(" bank%3d, %4d occupied, %4d free, %3d%% usage\n",
+				 i, bank_usage[i], 256 - bank_usage[i], bank_usage[i] * 100 / 256);
+			}
+		}
+	}
 
 	return 0;
 }

@@ -2,6 +2,9 @@
  * Assembler for the Intel 8048 microcontroller family.
  * Copyright (c) 2002,2003 David H. Hovemeyer <daveho@cs.umd.edu>
  *
+ * Enhanced in 2012, 2013 by JustBurn and sy2002 of MEGA
+ * http://www.adventurevision.net
+ *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
  * "Software"), to deal in the Software without restriction, including

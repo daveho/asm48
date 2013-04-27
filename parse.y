@@ -2,6 +2,9 @@
  * Assembler for the Intel 8048 microcontroller family.
  * Copyright (c) 2002,2003 David H. Hovemeyer <daveho@cs.umd.edu>
  *
+ * Enhanced in 2012, 2013 by JustBurn and sy2002 of MEGA
+ * http://www.adventurevision.net
+ *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
  * "Software"), to deal in the Software without restriction, including
@@ -25,12 +28,17 @@
 %{
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "asm48.h"
 
 void yyerror(const char *msg);
 int yylex(void);
 extern int lex_src_line;
 static int parse_src_line;
+
+int if_push_lex(int state);
+
+#define YYMAXDEPTH 1000000
 %}
 
 %token A BUS PSW C I TCNTI CLK T TCNT CNT
@@ -39,7 +47,8 @@ static int parse_src_line;
 %token<bit_num> JB F MB RB
 %token<identifier> IDENTIFIER
 %token<ival> INT_VALUE
-%token EOL
+%token<string> STRING_LITERAL
+%token EOL TEOF
 
 %token ADD ADDC ANL ANLD CALL CLR CPL DA DEC DIS DJNZ EN
 %token ENT0 IN INC INS JC JF0 JF1 JMP JMPP JNC JNI JNT0 JNT1 JNZ
@@ -47,13 +56,16 @@ static int parse_src_line;
 %token RET RETR RL RLC RR RRC SEL STOP STRT SWAP XCH XCHD
 %token XRL
 
-%token EQU ORG DB
-%token LSHIFT RSHIFT
-%token UMINUS
+%token IF IFDEF IFNDEF MESSAGE WARNING ERROR
+%token EQU SET ORG DB DW DBR INCBIN
+%token LSHIFT RSHIFT MOD
+%token UMINUS UNOTLOGIC ULOW UHIGH
+%token EQUAL DIFF LESSTHAN GREATERTHAN LAND LOR
 
 %type<reg_num> any_reg
 %type<expr> imm_val address
-%type<expr> expr bitwise_or_expr bitwise_and_expr shift_expr additive_expr mult_expr unary_expr primary_expr
+%type<expr> expr logical_or_expr logical_and_expr bitwise_xor_expr bitwise_or_expr bitwise_and_expr shift_expr additive_expr mult_expr unary_expr compare_expr primary_expr
+%type<sanything> msg_directive_expr anything
 
 %union {
 	int reg_num;
@@ -61,7 +73,9 @@ static int parse_src_line;
 	int bit_num;
 	int ival;
 	const char *identifier;
+	char *string;
 	struct Expr *expr;
+	char sanything[512];
 }
 
 %%
@@ -71,29 +85,90 @@ instruction_list :
 	| /* epsilon */
 	;
 
+instruction_end:
+	  EOL
+	| TEOF { YYACCEPT; }
+	;
+
 instruction :
-	   instruction_expr { ins_tail->src_line = parse_src_line; } EOL
-	| equate_directive EOL
-	| org_directive EOL
-	| db_directive EOL
+	  instruction_expr { ins_tail->src_line = parse_src_line; } instruction_end
+	| if_directive instruction_end
+	| msg_directive instruction_end
+	| equate_directive instruction_end
+	| org_directive instruction_end
+	| db_directive instruction_end
+	| dw_directive instruction_end
+	| dbr_directive instruction_end
+	| incbin_directive instruction_end
 	| label
-	| EOL
+	| instruction_end
 	;
 
 label :
-	  IDENTIFIER ':' { define_symbol($1, cur_offset); }
+	  IDENTIFIER ':'		{ define_symbol($1, cur_offset, SYMB_LABEL); }
+	;
+
+if_directive :
+	  IF '!' expr			{ if_push_lex(eval_expr(cur_file, $3) ? 1 : 2); }
+	| IF expr			{ if_push_lex(eval_expr(cur_file, $2) ? 2 : 1); }
+	| IFNDEF IDENTIFIER		{ if_push_lex(lookup_symbol($2) ? 1 : 2); }
+	| IFDEF IDENTIFIER		{ if_push_lex(lookup_symbol($2) ? 2 : 1); }
+	;
+
+msg_directive :
+	  MESSAGE msg_directive_expr	{ printf("Message: %s\n", $2); }
+	| WARNING msg_directive_expr	{ warn_printf("[%s] Line %d: %s\n", cur_file, parse_src_line, $2); }
+	| ERROR msg_directive_expr	{ err_printf("[%s] Line %d: %s\n", cur_file, parse_src_line, $2); }
+	;
+
+msg_directive_expr :
+	  msg_directive_expr ',' anything	{ strcat($$, $3); }
+	| anything				{ strcpy($$, $1); }
 	;
 
 equate_directive :
-	  EQU IDENTIFIER ',' expr { define_symbol($2, eval_expr($4)); }
+	  EQU IDENTIFIER ',' expr	{ define_symbol($2, eval_expr(cur_file, $4), SYMB_CONST); }
+	| EQU IDENTIFIER expr		{ define_symbol($2, eval_expr(cur_file, $3), SYMB_CONST); }
+	| EQU IDENTIFIER		{ define_symbol($2, 1, SYMB_CONST); }
+	| SET IDENTIFIER ',' expr	{ redefine_symbol($2, eval_expr(cur_file, $4), SYMB_CONST); }
+	| SET IDENTIFIER expr		{ redefine_symbol($2, eval_expr(cur_file, $3), SYMB_CONST); }
+	| SET IDENTIFIER		{ redefine_symbol($2, 1, SYMB_CONST); }
 	;
 
 org_directive :
-	  ORG INT_VALUE			{ append(org($2, parse_src_line)); }
+	  ORG expr		{ append_nostat(org(eval_expr(cur_file, $2), parse_src_line)); }
+	| ORG expr ',' expr	{ append_nostat(orgfill(eval_expr(cur_file, $2), eval_expr(cur_file, $4), parse_src_line)); }
 	;
 
 db_directive :
-	  DB expr			{ append(db(eval_expr($2), parse_src_line)); }
+	  DB db_directive_expr
+	;
+
+db_directive_expr :
+	  db_directive_expr ',' expr	{ append(db_expr($3, parse_src_line)); }
+	| expr				{ append(db_expr($1, parse_src_line)); }
+	;
+
+dw_directive :
+	  DW dw_directive_expr
+	;
+
+dw_directive_expr :
+	  dw_directive_expr ',' expr	{ append(dw_expr($3, parse_src_line)); }
+	| expr				{ append(dw_expr($1, parse_src_line)); }
+	;
+
+dbr_directive :
+	  DBR dbr_directive_expr
+	;
+
+dbr_directive_expr :
+	  dbr_directive_expr ',' expr	{ append(dbr(eval_expr(cur_file, $3), parse_src_line)); }
+	| expr				{ append(dbr(eval_expr(cur_file, $1), parse_src_line)); }
+	;
+
+incbin_directive :
+	  INCBIN STRING_LITERAL		{ append(incbin($2, parse_src_line)); }
 	;
 
 instruction_expr :
@@ -202,6 +277,11 @@ imm_val : expr ;
 
 address : expr ;
 
+anything :
+	  STRING_LITERAL	{ strcpy($$, $1 + 1); $$[strlen($$)-1] = 0; }
+	| expr			{ sprintf($$, " %d", eval_expr(cur_file, $1)); }
+	;
+
 /*
  * Expression grammar.
  * Operators accepted are bitwise & and |, left and right shift,
@@ -211,17 +291,42 @@ address : expr ;
  */
 
 expr :
+	  logical_or_expr
+	;
+
+logical_or_expr :
+	  logical_and_expr
+	| logical_or_expr LOR logical_and_expr { $$ = mk_binary_expr('o', $1, $3, parse_src_line); }
+	;
+
+logical_and_expr :
 	  bitwise_or_expr
+	| logical_and_expr LAND bitwise_or_expr { $$ = mk_binary_expr('a', $1, $3, parse_src_line); }
 	;
 
 bitwise_or_expr :
+	  bitwise_xor_expr
+	| bitwise_or_expr '|' bitwise_xor_expr { $$ = mk_binary_expr('|', $1, $3, parse_src_line); }
+	;
+
+bitwise_xor_expr :
 	  bitwise_and_expr
-	| bitwise_or_expr '|' bitwise_and_expr { $$ = mk_binary_expr('|', $1, $3, parse_src_line); }
+	| bitwise_xor_expr '^' bitwise_and_expr { $$ = mk_binary_expr('^', $1, $3, parse_src_line); }
 	;
 
 bitwise_and_expr :
+	  compare_expr
+	| bitwise_and_expr '&' compare_expr { $$ = mk_binary_expr('&', $1, $3, parse_src_line); }
+	;
+
+compare_expr :
 	  shift_expr
-	| bitwise_and_expr '&' shift_expr { $$ = mk_binary_expr('&', $1, $3, parse_src_line); }
+	| compare_expr EQUAL shift_expr { $$ = mk_binary_expr('=', $1, $3, parse_src_line); }
+	| compare_expr DIFF shift_expr { $$ = mk_binary_expr('!', $1, $3, parse_src_line); }
+	| compare_expr LESSTHAN shift_expr { $$ = mk_binary_expr('l', $1, $3, parse_src_line); }
+	| compare_expr GREATERTHAN shift_expr { $$ = mk_binary_expr('g', $1, $3, parse_src_line); }
+	| compare_expr '<' shift_expr { $$ = mk_binary_expr('<', $1, $3, parse_src_line); }
+	| compare_expr '>' shift_expr { $$ = mk_binary_expr('>', $1, $3, parse_src_line); }
 	;
 
 shift_expr :
@@ -240,12 +345,15 @@ mult_expr :
 	  unary_expr
 	| mult_expr '*' unary_expr { $$ = mk_binary_expr('*', $1, $3, parse_src_line); }
 	| mult_expr '/' unary_expr { $$ = mk_binary_expr('/', $1, $3, parse_src_line); }
+	| mult_expr MOD unary_expr { $$ = mk_binary_expr('%', $1, $3, parse_src_line); }
 	;
 
 unary_expr :
 	  '+' unary_expr { $$ = $2; }
 	| '-' unary_expr { $$ = mk_unary_expr(UMINUS, $2, parse_src_line); }
-	| '~' unary_expr { $$ = mk_unary_expr('~', $2, parse_src_line); }
+	| '~' unary_expr { $$ = mk_unary_expr(UNOTLOGIC, $2, parse_src_line); }
+	| '<' unary_expr { $$ = mk_unary_expr(ULOW, $2, parse_src_line); }
+	| '>' unary_expr { $$ = mk_unary_expr(UHIGH, $2, parse_src_line); }
 	| primary_expr
 	;
 
@@ -257,8 +365,10 @@ unary_expr :
  *     MOV A, ABh
  */
 primary_expr :
-	  IDENTIFIER { $$ = mk_symbolic_expr($1, parse_src_line); }
-	| '#' IDENTIFIER { $$ = mk_symbolic_expr($2, parse_src_line); }
+	  IDENTIFIER { $$ = mk_symbolic_expr($1, parse_src_line, 1); }
+	| '#' IDENTIFIER { $$ = mk_symbolic_expr($2, parse_src_line, 1); }
+	| '@' IDENTIFIER { $$ = mk_symbolic_expr($2, parse_src_line, 0); }
+	| '#' '@' IDENTIFIER { $$ = mk_symbolic_expr($3, parse_src_line, 0); }
 	| INT_VALUE { $$ = mk_const_expr($1, parse_src_line); }
 	| '#' INT_VALUE { $$ = mk_const_expr($2, parse_src_line); }
 	| '(' expr ')' { $$ = $2; }
@@ -268,5 +378,5 @@ primary_expr :
 
 void yyerror(const char *msg)
 {
-	err_printf("At line %d: %s\n", parse_src_line, msg);
+	err_printf("[%s] Line %d: %s\n", cur_file, parse_src_line, msg);
 }

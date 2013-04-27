@@ -2,6 +2,9 @@
  * Assembler for the Intel 8048 microcontroller family.
  * Copyright (c) 2002, David H. Hovemeyer <daveho@cs.umd.edu>
  *
+ * Enhanced in 2012, 2013 by JustBurn and sy2002 of MEGA
+ * http://www.adventurevision.net
+ *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
  * "Software"), to deal in the Software without restriction, including
@@ -34,12 +37,12 @@ struct Pool *create_pool(int size)
 
 	pool = malloc(sizeof(struct Pool));
 	if (pool == NULL)
-		err_printf("Unable to allocate pool of size %d bytes", size);
+		err_printf("Unable to allocate pool of size %d bytes\n", size);
 	pool->buf = malloc(size);
 
 	if (pool->buf == NULL) {
 		free(pool);
-		err_printf("Unable to allocate pool of size %d bytes", size);
+		err_printf("Unable to allocate pool of size %d bytes\n", size);
 	}
 
 	pool->size = size;
@@ -57,7 +60,7 @@ void *pool_alloc_buf(struct Pool *pool, int size)
 	void *result;
 
 	if (next_start > pool->size)
-		err_printf("Unable to satisfy allocation of %d bytes", size);
+		err_printf("Unable to satisfy allocation of %d bytes\n", size);
 
 	result = (char*)pool->buf + pool->start;
 	pool->start = next_start;

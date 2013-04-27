@@ -2,6 +2,9 @@
  * Assembler for the Intel 8048 microcontroller family.
  * Copyright (c) 2002,2003 David H. Hovemeyer <daveho@cs.umd.edu>
  *
+ * Enhanced in 2012, 2013 by JustBurn and sy2002 of MEGA
+ * http://www.adventurevision.net
+ *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
  * "Software"), to deal in the Software without restriction, including
@@ -30,9 +33,6 @@
 #include "asm48.h"
 #include "parse.tab.h"
 
-/* Define yywrap() so we don't need to link with the flex library. */
-#define yywrap() 1
-
 /*
  * Current source line.
  */
@@ -55,40 +55,96 @@ static int digit_value(char ch)
  */
 static int hex_const_value(const char *str)
 {
-	int value;
+    int value;
 
-	if (str[0] == '0' && tolower(str[1]) == 'x') {
-		sscanf(str + 2, "%x", &value);
-	} else {
-		value = 0;
-		for (;;) {
-			int ch = tolower(*str++);
-			if (ch == 'h')
-				break;
-			value <<= 4;
-			if (isdigit(ch))
-				value += (ch - '0');
-			else {
-				assert(ch >= 'a' && ch <= 'f');
-				value += (10 + (ch - 'a'));
-			}
-		}
-	}
-	return value;
+    if (str[0] == '0' && tolower(str[1]) == 'x') {
+            sscanf(str + 2, "%x", &value);
+    }
+    else if (str[0] == '%' || (str[0] == '0' && tolower(str[1]) == 'b')) {
+            value = 0;
+            if ( str[0] == '%' ) {
+                    str += 1;
+            } else {
+                    str += 2;
+            }
+            for (;;) {
+                    int ch = *str++;
+
+                    if (ch != '0' && ch != '1' )
+                            break;
+
+                    value <<= 1;
+
+                    if ( ch == '1' )
+                            value++;
+            }
+    } else {
+            value = 0;
+            while (*str) {
+                    int ch = tolower(*str++);
+                    if (ch == 'h')
+                            break;
+                    value <<= 4;
+                    if (isdigit(ch))
+                            value += (ch - '0');
+                    else {
+                            assert(tolower(ch) >= 'a' && tolower(ch) <= 'f');
+                            value += (10 + (tolower(ch) - 'a'));
+                    }
+            }
+    }
+    return value;
 }
+
+#define MAX_INCLUDE_DEPTH 32
+static struct {
+	char filename[512];
+	YY_BUFFER_STATE state;
+	int lineno;
+	int if_run;
+} include_stack[MAX_INCLUDE_DEPTH];
+int include_stack_ptr = 0;
+
+#define MAX_IF_DEPTH 32
+int if_stack[MAX_IF_DEPTH];
+int if_stack_ptr = 0;
+int if_run = 2; /* 0 = Never, 1 = Off, 2 = On */
+
+int include_lex(void);
+int eof_lex(void);
+int if_push_lex(int state);
+int if_pop_lex(void);
+int if_else_lex(void);
+
 %}
 
-DIGIT		[0-9]
-HEX		({DIGIT}|[A-Fa-f])
-IDSTART		[A-Za-z_]
-IDCHAR		({IDSTART}|{DIGIT})
-HWS		[ \t\r]
-SINGLE		[@,:()+\-\*/#\&\|~]
+ZEROONE         [0-1]
+DIGIT           [0-9]
+HEX             ({DIGIT}|[A-Fa-f])
+IDSTART         [A-Za-z_]
+IDCHAR          ({IDSTART}|{DIGIT})
+HWS             [ \t\r]
+SINGLE          [@,:()+\-\*/#\&\|!=<>~]
+STRING          \"(\\.|[^\\"])*\"
+INCLUDE         ^{HWS}*\.(INCLUDE|include){HWS}+{STRING}
+IFD             ^{HWS}*\.(IF|if){HWS}+.*
+IFDEFD          ^{HWS}*\.(IFDEF|ifdef){HWS}+.*
+IFNDEFD         ^{HWS}*\.(IFNDEF|ifndef){HWS}+.*
+IFSETD          ^{HWS}*\.(IFSET|ifset){HWS}+.*
+IFNSETD         ^{HWS}*\.(IFNSET|ifnset){HWS}+.*
+
+%x	ifskip
+
+/* This tells flex to read only one input file
+   added by sy2002 to achieve a better cross-platform makefile compatibility, since
+   otherwise we'd need different link options for win32, linux and OSX */
+%option noyywrap
 
 %%
 
 		/* Skip comments. */
 ";".*"\n"	{ ++lex_src_line; return EOL; }
+";".*		{ ++lex_src_line; return EOL; }
 
 		/* Skip horizontal whitespace. */
 {HWS}+		{ }
@@ -162,8 +218,14 @@ SINGLE		[@,:()+\-\*/#\&\|~]
 		/* Hex constant. This is the numeric format produced by the disassembler. */
 ${HEX}+		{ sscanf(yytext+1, "%x", &yylval.ival); return INT_VALUE; }
 
-		/* Single-character tokens. */
-{SINGLE}	{ return yytext[0]; }
+		/* Current address */
+"$"		{ yylval.ival = cur_offset; return INT_VALUE; }
+
+		/* Binary constant. */
+0[Bb]{ZEROONE}+ { yylval.ival = hex_const_value(yytext); return INT_VALUE; }
+
+		/* Binary constant. */
+\%{ZEROONE}+	{ yylval.ival = hex_const_value(yytext); return INT_VALUE; }
 
 		/* Left shift. */
 "<<"		{ return LSHIFT; }
@@ -171,14 +233,89 @@ ${HEX}+		{ sscanf(yytext+1, "%x", &yylval.ival); return INT_VALUE; }
 		/* Right shift. */
 ">>"		{ return RSHIFT; }
 
+		/* Compare equal */
+"=="		{ return EQUAL; }
+
+		/* Compare different */
+"!="		{ return DIFF; }
+
+		/* Compare less than */
+"<="		{ return LESSTHAN; }
+
+		/* Compare greater than */
+">="		{ return GREATERTHAN; }
+
+		/* Logical-AND */
+"&&"		{ return LAND; }
+
+		/* Logical-OR */
+"||"		{ return LOR; }
+
+		/* Modulo. */
+\%[ \t]+	{ return MOD; }
+
+		/* Single-character tokens. */
+{SINGLE}	{ return yytext[0]; }
+
 		/* Equate keyword. */
 "."(EQU|equ)	{ return EQU; }
+
+		/* Set symbol keyword. */
+"."(SET|set)	{ return SET; }
+
+		/* Define symbol keyword. */
+"."(DEFINE|define)	{ return SET; }
 
 		/* .org directive  */
 "."(ORG|org)	{ return ORG; }
 
 		/* .db directive */
 "."(DB|db)	{ return DB; }
+
+		/* .dw directive */
+"."(DW|dw)	{ return DW; }
+
+		/* .dbr directive */
+"."(DBR|dbr)	{ return DBR; }
+
+		/* .incbin directive */
+"."(INCBIN|incbin)	{ return INCBIN; }
+
+		/* .end directive */
+"."(END|end)	{ return eof_lex(); }
+
+		/* .exit directive */
+"."(EXIT|exit)	{ return TEOF; }
+
+			/* .message directive */
+"."(MESSAGE|message)	{ return MESSAGE; }
+
+			/* .warning directive */
+"."(WARNING|warning)	{ return WARNING; }
+
+			/* .error directive */
+"."(ERROR|error)	{ return ERROR; }
+
+			/* .if directive */
+"."(IF|if)		{ return IF; }
+
+			/* .ifdef directive */
+"."(IFDEF|ifdef)	{ return IFDEF; }
+
+			/* .ifndef directive */
+"."(IFNDEF|ifndef)	{ return IFNDEF; }
+
+			/* .ifset directive */
+"."(IFSET|ifset)	{ return IFDEF; }
+
+			/* .ifnset directive */
+"."(IFNSET|ifnset)	{ return IFNDEF; }
+
+			/* .else directive */
+"."(ELSE|else)		{ return if_else_lex(); }
+
+			/* .endif directive */
+"."(ENDIF|endif)	{ return if_pop_lex(); }
 
 		/* Instruction mnemonics. */
 (ADD|add)	{ return ADD; }
@@ -237,9 +374,52 @@ ${HEX}+		{ sscanf(yytext+1, "%x", &yylval.ival); return INT_VALUE; }
 
 		/* Identifier. */
 \.?{IDSTART}{IDCHAR}* { yylval.identifier = dup_str(yytext); return IDENTIFIER; }
+		/* string literal */
+{STRING}	{ yylval.identifier = dup_str(yytext); return STRING_LITERAL; }
 
-.		{ err_printf("Unexpected character '%c' at line %d\n", yytext[0], lex_src_line); }
+.		{ err_printf("[%s] Line %d: Unexpected character '%c'\n", cur_file, lex_src_line, yytext[0]); }
 
+		/* .include directive */
+{INCLUDE}	{ return include_lex(); }
+
+<<EOF>>		{ return eof_lex(); }
+
+		/*
+		 * IF ignore state
+		 */
+				/* Skip comments. */
+<ifskip>";".*"\n"		{ ++lex_src_line; return EOL; }
+<ifskip>";".*			{ ++lex_src_line; return EOL; }
+
+				/* Skip horizontal whitespace. */
+<ifskip>{HWS}+			{ }
+
+				/* End of line character. */
+<ifskip>"\n"			{ ++lex_src_line; return EOL; }
+
+				/* .if directive */
+<ifskip>{IFD}			{ return if_push_lex(0); }
+
+				/* .ifdef directive */
+<ifskip>{IFDEFD}		{ return if_push_lex(0); }
+
+				/* .ifndef directive */
+<ifskip>{IFNDEFD}		{ return if_push_lex(0); }
+
+				/* .ifset directive */
+<ifskip>{IFSETD}		{ return if_push_lex(0); }
+
+				/* .ifnset directive */
+<ifskip>{IFNSETD}		{ return if_push_lex(0); }
+
+				/* .else directive */
+<ifskip>"."(ELSE|else)		{ return if_else_lex(); }
+
+				/* .endif directive */
+<ifskip>"."(ENDIF|endif)	{ return if_pop_lex(); }
+
+				/* Anything else... */
+<ifskip>.			{ return EOL; }
 
 %%
 
@@ -259,3 +439,103 @@ int main(int argc, char *argv)
 	return 0;
 }
 #endif
+
+int include_lex(void)
+{
+	char *fname, *p = NULL;
+
+	if (include_stack_ptr >= MAX_INCLUDE_DEPTH) {
+		err_printf("[%s] Line %d: Includes nest too deep.\n", cur_file, lex_src_line);
+		return TEOF;
+	}
+
+	if ((fname = strchr(yytext, '"')) != NULL) {
+		if ((p = strchr(++fname, '"')) != NULL) *p = '\0';
+
+	//on unixoid systems (e.g. Linux, OSX, ...)
+	//change back-slashes "\" to forward slashes "/"
+#ifdef UNIXOID
+	char* fs = strchr(fname, '\\');
+	while (fs != NULL)
+	{
+		*fs = '/';
+		fs = strchr(fname, '\\');
+	}
+#endif
+
+		yyin = fopen(fname, "r");
+		if (!yyin) {
+			err_printf("[%s] Line %d: Couldn't include file %s\n", cur_file, lex_src_line, fname);
+			return TEOF;
+		}
+
+ 		strcpy(include_stack[include_stack_ptr].filename, cur_file);
+ 		include_stack[include_stack_ptr].state = YY_CURRENT_BUFFER;
+ 		include_stack[include_stack_ptr].lineno = lex_src_line;
+		include_stack_ptr++;
+
+		lex_src_line = 1;
+		cur_file_set(fname);
+		yy_switch_to_buffer(yy_create_buffer(yyin, YY_BUF_SIZE));
+	}
+
+	return EOL;
+}
+
+int eof_lex(void)
+{
+	if (include_stack_ptr <= 0) return TEOF;
+	include_stack_ptr--;
+
+	yy_delete_buffer(YY_CURRENT_BUFFER);
+	yy_switch_to_buffer(include_stack[include_stack_ptr].state);
+	lex_src_line = include_stack[include_stack_ptr].lineno;
+	cur_file_set(include_stack[include_stack_ptr].filename);
+
+	return EOL;
+}
+
+int if_push_lex(int state)
+{
+	if (if_stack_ptr >= MAX_IF_DEPTH) {
+		err_printf("[%s] Line %d: Conditional directive nest too deep.\n", cur_file, lex_src_line);
+		return TEOF;
+	}
+
+ 	if_stack[if_stack_ptr] = if_run;
+	if_stack_ptr++;
+	if (!state) if_run = 0;
+	else if_run = state;
+
+	if (if_run == 2) BEGIN(INITIAL);
+	else BEGIN(ifskip);
+
+	return EOL;
+}
+
+int if_pop_lex(void)
+{
+	if (if_stack_ptr <= 0) {
+		err_printf("[%s] Line %d: Conditional directive missing.\n", cur_file, lex_src_line);
+		return TEOF;
+	}
+
+	if_stack_ptr--;
+ 	if_run = if_stack[if_stack_ptr];
+
+	if (if_run == 2) BEGIN(INITIAL);
+	else BEGIN(ifskip);
+
+	return EOL;
+}
+
+int if_else_lex(void)
+{
+	if (if_run == 1) if_run = 2;
+	else if (if_run == 2) if_run = 1;
+
+	if (if_run == 2) BEGIN(INITIAL);
+	else BEGIN(ifskip);
+
+	return EOL;
+}

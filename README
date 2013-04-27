@@ -1,9 +1,16 @@
 Asm48 - an 8048 cross assembler
+
+Original Version 0.1
 Version 0.1pre
 January 29, 2003
-David Hovemeyer <daveho@cs.umd.edu>
+by David Hovemeyer <daveho@cs.umd.edu>
 
-This needs to be updated!
+Enhanced Version 0.4.1
+April 14, 2013
+by Adventure Vision Development Team of MEGA <http://www.adventurevision.net>
+main enhancements by JustBurn; OSX and multiplatform  by sy2002
+
+Version Status: 0.4.1 is stable
 
 ===========
 What is it?
@@ -22,8 +29,8 @@ the 8021, 8035, 8038, 8039, 8040, 8048, 8049, 8050, 8748, and 8749.
 although I think the instruction encodings are somewhat different, and
 thus I wouldn't necessarily expect this assembler to support those chips.)
 
-You can find the 8048 in the Magnavox Odyssey^2 game system and certain
-arcade video games.
+You can find the 8048 in various game systems as the Magnavox Odyssey^2 and
+the Entex Adventure Vision and certain arcade video games.
 
 ================
 Acknowledgements
@@ -40,6 +47,41 @@ and was shamelessly stolen from the MAME/MESS project.
 ============
 Installation
 ============
+
+The multiplatform package "asm48-0.4.1-executables-and-src-win-linux-osx.zip"
+contains executables for Windows, Linux and OSX, so just unzip, choose the
+right subdirectory and start working.
+
+=========
+Compiling
+=========
+
+The sources and the makefile are tested to compile under Windows, Linux
+and OSX - normally without requiring any changes, since the makefile
+autodetects the platform.
+
+You need:
+
+* GNU make, http://www.gnu.org/software/make
+* GNU Compiler Collection http://www.gnu.org/software/gcc
+* FLEX and BISON
+
+Windows:
+
+Recommended to compile using MSYS' Bournce Shell, since it already
+contains the GNU Compiler Collection as well as FLEX and BISON.
+Use the graphical installer and install MINGW together with MSYS as described here:
+http://www.mingw.org/wiki/Getting_Started
+
+Linux:
+
+Use your package manager to install FLEX and BISON.
+
+OSX:
+
+Install XCode plus the optional command line tools, which already
+contain FLEX and BISON.
+
 
 Just run the command "make".  There are a couple configurable options in
 the Makefile you might want to change.  I assume you have flex and bison
@@ -63,12 +105,36 @@ the Intel 8048 user manual.  However, I've made some gratuitous changes:
   - Hex constants may be specified using the standard C notation
     (0x1A) rather than the Intel notation (1Ah)
 
-Three kinds of directives are allowed:
+These directives are allowed:
 
   .equ IDENTIFIER, VALUE
   .org VALUE
+  .org VALUE, FILL-VALUE
   .db VALUE
+  .db VALUE, VALUE, ...
+  .db accepts forward labels
+  .dbr same as .db but with reverse bit order
+  .dw 16bit VALUE(S)  
+  
+  .include "FILENAME" for including assembly files
+  .incbin "FILENAME" for including binary files
+    
+  conditional directives .if, .ifdef, .ifndef, .else, .endif
+  
+  message directives: .message, .warning, .error
+  
+  .exit for end-of-assembly
+  .set for conditionals
 
+  $ symbol for current offset, e.g. for doing things like  "jmp $ + 3"
+  % for modulo, e.g. for doing things like ".equ 50 % 7"
+  ~ for flipping bits
+  ==, !=, =, &&, || for boolean logics
+
+  Instruction immediates now also accept 8-bit negative values
+  
+  expression unary <: get lo byte of word; > get hi byte  
+  
 The special symbol ".here" may be used to refer to the address of the
 current instruction.
 
@@ -78,9 +144,9 @@ bitwise "&" (and) and "|" (or), and bitwise complement (the unary "~" operator).
 All expressions are evaluated using host platform ints.  Operator precedence
 follows the equivalent C operators.
 
-============================
-Disclaimers and contact info
-============================
+=================================================
+Dave's Original 2003 Disclaimers and contact info
+=================================================
 
 If you actually use this assembler, please send me an email at
 <daveho@cs.umd.edu>.  I wrote it on a lark[*], and given how crufty
@@ -99,3 +165,23 @@ assembler output looks reasonable.
 Have fun!
 
 [*] It was really hard to get it to stand still.
+
+======================================================================
+Some 2013 final notes by the Adventure Vision Development Team of MEGA
+======================================================================
+
+Dave did a great job. His version 0.1 of the assembler from 2003
+already worked like a charm. We just added plenty of new directives,
+and features and fixed some minor bugs to make the assembler usable
+for larger projects.
+
+Now, our version 0.4.1 from 2013 can be considered as stable and as
+truely multiplatform, since it runs and compiles on Windows, Linux
+and OSX.
+
+The 8048 is a really cool piece of hardware, and it is fascinating
+what you can do with such a far more than 30 years old CPU. If you
+are into the demo scene, have a look at our 8048 Adventure Vision
+demo at <http://www.pouet.net/prod.php?which=61201> or visit the
+"Making Of" Homepage at <http://www.adventurevision.net/>. You'll
+also find an Adventure Vision 8048 Emulator there.
