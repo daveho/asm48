@@ -26,17 +26,17 @@ Info
 ====
 
 Asm48 is a cross assembler for the ubiquitous Intel™ 8048 family of
-microcontrollers.  The assembler is at an early stage of development. 
-However, the major functionality is in place, and with some testing it
-will be considered stable very soon.  If you feel slightly adventurous
-and don\'t mind fixing some bugs, you could probably use Asm48 right
-now.
+microcontrollers.
+
+Although it was originally written for fun, it has turned out to be
+surprisingly useful, and can be considered as reasonably close to production
+quality.
 
 Download
 ========
 
-See the [Releases]() for downloadable files.  However, you're probably
-better using git to clone [the repository](https://github.com/daveho/asm48)
+See the [Releases](https://github.com/daveho/asm48/releases) for downloadable files.
+However, you're probably better using git to clone [the repository](https://github.com/daveho/asm48)
 and then building from source.
 
 Getting the source code
