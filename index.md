@@ -25,7 +25,7 @@ News
 Info
 ====
 
-Asm48 is a cross assembler for the ubiquitous Intel(tm) 8048 family of
+Asm48 is a cross assembler for the ubiquitous Intel™ 8048 family of
 microcontrollers.  The assembler is at an early stage of development. 
 However, the major functionality is in place, and with some testing it
 will be considered stable very soon.  If you feel slightly adventurous
