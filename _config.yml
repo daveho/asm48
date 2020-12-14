@@ -1,0 +1,3 @@
+baseurl: "/asm48"
+markdown: kramdown
+highlighter: rouge
