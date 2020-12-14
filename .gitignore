@@ -1,0 +1,8 @@
+/*.o
+/lex.yy.c
+/parse.tab.[ch]
+/8039dasm
+/asm48
+*.swp
+/.jekyll-cache
+/_site
