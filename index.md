@@ -13,7 +13,7 @@ News
     Version 0.4.1 is stable and features conditionals, includes and
     plenty of other new directives. For details, have a look at the
     README.  This 2013 version 0.4.1 of Dave\'s 2003 version 0.0 was done by the
-    [Adventure Vision Development Team of MEGA](http://www.adventurevision.net).
+    [Adventure Vision Development Team of MEGA](https://www.m-e-g-a.org/research-education/research/adventure-vision/).
 -   **4 Feb 2003**: [Version 0.0 binaries available for Windows](https://github.com/daveho/asm48/releases/tag/REL_0_0).
 -   **29 Jan 2003**: [Version 0.0](https://github.com/daveho/asm48/releases/tag/REL_0_0)
     released with source and binaries for Linux.
